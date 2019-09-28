@@ -63,7 +63,7 @@ const loop = () => {
 
   const currentTime = performance.now() * 0.001;
   const deltaSecs = Math.min(0.1, currentTime - previousTime);
-  const elapsedSecs = startTime - currentTime;
+  const elapsedSecs = currentTime - startTime;
 
   particles.update(gl, deltaSecs, elapsedSecs);
 
