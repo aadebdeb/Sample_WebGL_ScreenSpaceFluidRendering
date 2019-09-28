@@ -6,10 +6,8 @@ import { Vector3 } from './math/vector3';
 import { createShader, setUniformTexture } from './webGlUtils';
 import fillViewportVertex from '!!raw-loader!./shaders/fillViewportVertex.glsl';
 import renderFragment from '!!raw-loader!./shaders/renderFragment.glsl';
-import mixBlurFragment from '!!raw-loader!./shaders/mixBlurFragment.glsl';
 import { BlurApplier } from './filters/blurApplier';
 import { TextureRenderTarget } from './textureRenderTarget';
-import { HdrRenderTarget } from './hdrRenderTarget';
 
 const canvas = document.createElement('canvas');
 canvas.width = innerWidth;
@@ -55,20 +53,6 @@ const renderProgram = new Program(gl,
   Object.values(RenderUniforms)
 );
 
-enum MixBlurUniforms {
-  SRC_TEXTURE = 'u_srcTexture',
-  BLURRED_SRC_TEXTURE = 'u_blurredSrcTexture',
-  NEAR = 'u_near',
-  FAR = 'u_far'
-}
-
-const mixBlurProgram = new Program(gl,
-  createShader(gl, fillViewportVertex, gl.VERTEX_SHADER),
-  createShader(gl, mixBlurFragment, gl.FRAGMENT_SHADER),
-  Object.values(MixBlurUniforms)
-);
-let mixBlurTarget = new HdrRenderTarget(gl, canvas.width, canvas.height);
-
 let blurApplier = new BlurApplier(gl, canvas.width, canvas.height);
 
 const startTime = performance.now() * 0.001;
@@ -91,21 +75,10 @@ const loop = () => {
 
   gl.disable(gl.DEPTH_TEST);
 
-
   const depthTarget = new TextureRenderTarget(gBuffer.depthTexture, gBuffer.width, gBuffer.height);
-
   const blurredTexture = blurApplier.apply(gl, depthTarget, near, far, particleSize * 5.0, {
     gBuffer, camera,
   });
-
-  gl.bindFramebuffer(gl.FRAMEBUFFER, mixBlurTarget.framebuffer);
-  gl.viewport(0.0, 0.0, mixBlurTarget.width, mixBlurTarget.height);
-  gl.useProgram(mixBlurProgram.program);
-  setUniformTexture(gl, 0, gBuffer.depthTexture, mixBlurProgram.getUniform(MixBlurUniforms.SRC_TEXTURE));
-  setUniformTexture(gl, 1, blurredTexture, mixBlurProgram.getUniform(MixBlurUniforms.BLURRED_SRC_TEXTURE));
-  gl.uniform1f(mixBlurProgram.getUniform(MixBlurUniforms.NEAR), near);
-  gl.uniform1f(mixBlurProgram.getUniform(MixBlurUniforms.FAR), far);
-  gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0.0, 0.0, canvas.width, canvas.height);
@@ -132,7 +105,6 @@ addEventListener('resize', () => {
 
   camera.aspect = canvas.width / canvas.height;
   gBuffer = new GBuffer(gl, canvas.width, canvas.height);
-  mixBlurTarget = new HdrRenderTarget(gl, canvas.width, canvas.height);
   blurApplier = new BlurApplier(gl, canvas.width, canvas.height);
 
   requestId = requestAnimationFrame(loop);
