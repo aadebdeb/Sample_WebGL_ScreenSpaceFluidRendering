@@ -1,19 +1,5 @@
 import { createTexture } from './webGlUtils';
 
-function createColorTexture(gl: WebGL2RenderingContext, width: number, height: number): WebGLTexture {
-  return createTexture(gl, width, height, {
-    internalFormat: gl.RGBA16F,
-    format: gl.RGBA,
-    type: gl.HALF_FLOAT,
-    parameteri: [
-      [gl.TEXTURE_MAG_FILTER, gl.LINEAR],
-      [gl.TEXTURE_MIN_FILTER, gl.LINEAR],
-      [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE],
-      [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]
-    ]
-  });
-}
-
 function createDepthTexture(gl: WebGL2RenderingContext, width: number, height: number): WebGLTexture {
   return createTexture(gl, width, height, {
     internalFormat: gl.DEPTH_COMPONENT32F,

@@ -1,11 +1,12 @@
 {
-  "name": "web_audioreactivevisuals_002",
+  "name": "sample_webgl_screenspacefluildrendering",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "build": "webpack",
-    "watch": "webpack -w"
+    "watch": "webpack -w",
+    "build:prod": "webpack --mode production"
   },
   "author": "",
   "license": "ISC",

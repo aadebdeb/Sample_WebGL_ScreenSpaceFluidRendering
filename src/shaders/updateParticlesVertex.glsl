@@ -13,9 +13,19 @@ out float o_life;
 uniform float u_deltaSecs;
 uniform float u_elapsedSecs;
 uniform float u_lifeSecs;
+uniform float u_initialPosRadius;
+uniform float u_forceScale;
 
 vec3 random3(float x) {
     return fract(sin(x * vec3(12.9898, 51.431, 29.964)) * vec3(43758.5453, 71932.1354, 39215.4221));
+}
+
+vec3 randomInSphere(float x) {
+    vec3 r = random3(x);
+    float s = sqrt(1.0 - r.x * r.x);
+    float a = 6.28318530718 * r.y;
+    float d = pow(r.z, 0.333);
+    return vec3(d * s * cos(a), d * s * sin(a), d * r.x);
 }
 
 float random(vec4 x){
@@ -77,7 +87,7 @@ void main(void) {
   vec3 dy = vec3(0.0, EPSILON, 0.0);
   vec3 dz = vec3(0.0, 0.0, EPSILON);
 
-  vec3 p = 0.1 * i_position;
+  vec3 p = 0.2 * i_position;
   float t = 0.2 * u_elapsedSecs;
 
   vec3 dpdx0 = valuenoise3(vec4(p - dx, t));
@@ -96,12 +106,12 @@ void main(void) {
   vec3 velocity = i_velocity;
   if (life > 1.0) {
     life -= 1.0;
-    position = 5.0 * (2.0 * random3(float(gl_VertexID)) - 1.0);
+    position = u_initialPosRadius * randomInSphere(float(gl_VertexID));
     velocity = vec3(0.0);
   }
 
   vec3 force = vec3(x, y, z) / EPSILON * 2.0;
-  velocity += u_deltaSecs * 3.0 * force;
+  velocity += u_deltaSecs * u_forceScale * force;
 
   o_position = position + u_deltaSecs * velocity;
   o_velocity = velocity;

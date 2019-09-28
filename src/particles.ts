@@ -7,12 +7,15 @@ import renderParticlesFragment from '!!raw-loader!./shaders/renderParticlesFragm
 import updateParticlesVertex from '!!raw-loader!./shaders/updateParticlesVertex.glsl';
 import updateParticlesFragment from '!!raw-loader!./shaders/updateParticlesFragment.glsl';
 
-function createInitialPositions(length: number): Float32Array {
+function createInitialPositions(length: number, radius: number): Float32Array {
   const array = new Float32Array(3 * length);
   for (let i = 0; i < length; i += 3) {
-    array[i] = 2.0 * (Math.random() * 2.0 - 1.0);
-    array[i + 1] = 2.0 * (Math.random() * 2.0 - 1.0);
-    array[i + 2] = 2.0 * (Math.random() * 2.0 - 1.0);
+    const z = Math.random() * 2.0 - 1.0;
+    const phi = Math.random() * Math.PI * 2.0;
+    const r = Math.pow(Math.random(), 0.333);
+    array[i] = radius * r * Math.sqrt(1.0 - z * z) * Math.cos(phi);
+    array[i + 1] = radius * r * Math.sqrt(1.0 - z * z) * Math.sin(phi);
+    array[i + 2] = radius * r * z;
   }
   return array;
 }
@@ -28,7 +31,9 @@ function createInitialLife(length: number): Float32Array {
 enum UpdateUniforms {
   DELTA_SECS = 'u_deltaSecs',
   EPALSED_SECS = 'u_elapsedSecs',
-  LIFE_SECS = 'u_lifeSecs'
+  LIFE_SECS = 'u_lifeSecs',
+  INITIAL_POS_RADIUS = 'u_initialPosRadius',
+  FORCE_SCALE = 'u_forceScale',
 }
 
 enum RenderUniforms {
@@ -42,12 +47,16 @@ type ConstructorOptions = {
   particleNum?: number,
   particleSize?: number,
   lifeSecs?: number,
+  initialPosRadius?: number,
+  forceScale?: number,
 }
 
 export class Particles {
   private particleNum: number;
   private particleSize: number;
   private lifeSecs: number;
+  private initialPosRadius: number;
+  private forceScale: number;
   private posVbo: WebGLBuffer;
   private posVboW: WebGLBuffer;
   private velVbo: WebGLBuffer;
@@ -62,11 +71,15 @@ export class Particles {
     particleNum = 10000,
     particleSize = 1.0,
     lifeSecs = 30.0,
+    initialPosRadius = 1.0,
+    forceScale = 1.0,
   }: ConstructorOptions = {}) {
     this.particleNum = particleNum;
     this.particleSize = particleSize;
     this.lifeSecs = lifeSecs;
-    this.posVbo = createVbo(gl, createInitialPositions(particleNum), gl.DYNAMIC_COPY);
+    this.initialPosRadius = initialPosRadius;
+    this.forceScale = forceScale;
+    this.posVbo = createVbo(gl, createInitialPositions(particleNum, initialPosRadius), gl.DYNAMIC_COPY);
     this.posVboW = createVbo(gl, new Float32Array(3 * particleNum), gl.DYNAMIC_COPY);
     this.velVbo = createVbo(gl, new Float32Array(3 * particleNum), gl.DYNAMIC_COPY);
     this.velVboW = createVbo(gl, new Float32Array(3 * particleNum), gl.DYNAMIC_COPY);
@@ -88,7 +101,9 @@ export class Particles {
     gl.useProgram(this.updateProgram.program);
     gl.uniform1f(this.updateProgram.getUniform(UpdateUniforms.DELTA_SECS), deltaSecs);
     gl.uniform1f(this.updateProgram.getUniform(UpdateUniforms.EPALSED_SECS), elapsedSecs);
-    gl.uniform1f(this.updateProgram.getUniform(UpdateUniforms.LIFE_SECS), this.lifeSecs)
+    gl.uniform1f(this.updateProgram.getUniform(UpdateUniforms.LIFE_SECS), this.lifeSecs);
+    gl.uniform1f(this.updateProgram.getUniform(UpdateUniforms.INITIAL_POS_RADIUS), this.initialPosRadius);
+    gl.uniform1f(this.updateProgram.getUniform(UpdateUniforms.FORCE_SCALE), this.forceScale);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.posVbo);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);

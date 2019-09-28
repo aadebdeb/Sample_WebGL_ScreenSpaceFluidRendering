@@ -22,7 +22,7 @@ gl.clearColor(0.0, 0.0, 0.0, 1.0);
 let gBuffer = new GBuffer(gl, canvas.width, canvas.height);
 const near = 0.1;
 const far = 200.0;
-const cameraPos = new Vector3(50.0, 0.0, 50.0);
+const cameraPos = new Vector3(30.0, 0.0, 50.0);
 const camera = new Camera({
   aspect: canvas.width / canvas.height,
   vfov: 60.0, 
@@ -31,26 +31,45 @@ const camera = new Camera({
   origin: cameraPos,
   target: new Vector3(0.0, 0.0, 0.0)
 });
+
+const particleSize = 0.5;
 const particles = new Particles(gl, {
-  particleNum: 10000,
-  particleSize: 1.0,
+  particleNum: 30000,
+  particleSize: particleSize,
   lifeSecs: 5.0,
+  initialPosRadius: 3.0,
+  forceScale: 2.5,
 });
+
+enum RenderUniforms {
+  DEPTH_TEXTURE = 'u_depthTexture',
+  INV_VP_MATRIX = 'u_invVpMatrix',
+  NEAR = 'u_near',
+  FAR = 'u_far',
+  CAMERA_POS = 'u_cameraPos'
+}
 
 const renderProgram = new Program(gl,
   createShader(gl, fillViewportVertex, gl.VERTEX_SHADER),
   createShader(gl, renderFragment, gl.FRAGMENT_SHADER),
-  ['u_depthTexture', 'u_invVpMatrix', 'u_near', 'u_far', 'u_cameraPos']
+  Object.values(RenderUniforms)
 );
+
+enum MixBlurUniforms {
+  SRC_TEXTURE = 'u_srcTexture',
+  BLURRED_SRC_TEXTURE = 'u_blurredSrcTexture',
+  NEAR = 'u_near',
+  FAR = 'u_far'
+}
 
 const mixBlurProgram = new Program(gl,
   createShader(gl, fillViewportVertex, gl.VERTEX_SHADER),
   createShader(gl, mixBlurFragment, gl.FRAGMENT_SHADER),
-  ['u_depthTexture', 'u_srcTexture', 'u_blurredSrcTexture', 'u_near', 'u_far']
+  Object.values(MixBlurUniforms)
 );
-const mixBlurTarget = new HdrRenderTarget(gl, canvas.width, canvas.height);
+let mixBlurTarget = new HdrRenderTarget(gl, canvas.width, canvas.height);
 
-const blurApplier = new BlurApplier(gl, canvas.width, canvas.height);
+let blurApplier = new BlurApplier(gl, canvas.width, canvas.height);
 
 const startTime = performance.now() * 0.001;
 let previousTime = startTime;
@@ -75,28 +94,28 @@ const loop = () => {
 
   const depthTarget = new TextureRenderTarget(gBuffer.depthTexture, gBuffer.width, gBuffer.height);
 
-  const blurredTexture = blurApplier.apply(gl, depthTarget, near, far, {
+  const blurredTexture = blurApplier.apply(gl, depthTarget, near, far, particleSize * 5.0, {
     gBuffer, camera,
   });
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, mixBlurTarget.framebuffer);
   gl.viewport(0.0, 0.0, mixBlurTarget.width, mixBlurTarget.height);
   gl.useProgram(mixBlurProgram.program);
-  setUniformTexture(gl, 0, gBuffer.depthTexture, mixBlurProgram.getUniform('u_srcTexture'));
-  setUniformTexture(gl, 1, blurredTexture, mixBlurProgram.getUniform('u_blurredSrcTexture'));
-  gl.uniform1f(mixBlurProgram.getUniform('u_near'), near);
-  gl.uniform1f(mixBlurProgram.getUniform('u_far'), far);
+  setUniformTexture(gl, 0, gBuffer.depthTexture, mixBlurProgram.getUniform(MixBlurUniforms.SRC_TEXTURE));
+  setUniformTexture(gl, 1, blurredTexture, mixBlurProgram.getUniform(MixBlurUniforms.BLURRED_SRC_TEXTURE));
+  gl.uniform1f(mixBlurProgram.getUniform(MixBlurUniforms.NEAR), near);
+  gl.uniform1f(mixBlurProgram.getUniform(MixBlurUniforms.FAR), far);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   gl.viewport(0.0, 0.0, canvas.width, canvas.height);
 
   gl.useProgram(renderProgram.program);
-  setUniformTexture(gl, 0, mixBlurTarget.texture, renderProgram.getUniform('u_depthTexture'));
-  gl.uniformMatrix4fv(renderProgram.getUniform('u_invVpMatrix'), false, camera.vpMatrix.getInvMatrix().elements)
-  gl.uniform1f(renderProgram.getUniform('u_near'), near);
-  gl.uniform1f(renderProgram.getUniform('u_far'), far);
-  gl.uniform3fv(renderProgram.getUniform('u_cameraPos'), cameraPos.toArray());
+  setUniformTexture(gl, 0, blurredTexture, renderProgram.getUniform(RenderUniforms.DEPTH_TEXTURE));
+  gl.uniformMatrix4fv(renderProgram.getUniform(RenderUniforms.INV_VP_MATRIX), false, camera.vpMatrix.getInvMatrix().elements)
+  gl.uniform1f(renderProgram.getUniform(RenderUniforms.NEAR), near);
+  gl.uniform1f(renderProgram.getUniform(RenderUniforms.FAR), far);
+  gl.uniform3fv(renderProgram.getUniform(RenderUniforms.CAMERA_POS), cameraPos.toArray());
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   previousTime = currentTime;
@@ -110,6 +129,11 @@ addEventListener('resize', () => {
   }
   canvas.width = innerWidth;
   canvas.height = innerHeight;
+
+  camera.aspect = canvas.width / canvas.height;
+  gBuffer = new GBuffer(gl, canvas.width, canvas.height);
+  mixBlurTarget = new HdrRenderTarget(gl, canvas.width, canvas.height);
+  blurApplier = new BlurApplier(gl, canvas.width, canvas.height);
 
   requestId = requestAnimationFrame(loop);
 });

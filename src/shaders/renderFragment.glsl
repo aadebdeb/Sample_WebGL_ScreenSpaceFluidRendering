@@ -30,17 +30,13 @@ vec3 uvToWorldPos(ivec2 coord) {
   return (u_invVpMatrix * vec4(clipPos, 1.0)).xyz;
 }
 
-vec3 schlickFresnel(vec3 f90, float cosine) {
-  return f90 + (1.0 - f90) * pow(1.0 - cosine, 5.0);
-}
-
 void main(void) {
   float depth = texture(u_depthTexture, v_uv).r;
 
   float linearDepth = toLinearDepth(depth, u_near, u_far);
 
   if (linearDepth > 0.99) {
-    o_color = vec4(1.0, 0.5, 0.1, 1.0);
+    o_color = vec4(1.0, 0.4, 0.5, 1.0);
     return;
   }
 
@@ -58,11 +54,8 @@ void main(void) {
 
   vec3 refDir = reflect(-normalize(u_cameraPos - worldPos), worldNormal);
 
-  vec3 fresnel = schlickFresnel(vec3(0.5), clamp(dot(u_cameraPos, worldNormal), 0.0, 1.0));
+  vec3 diffuse = vec3(0.1, 0.75, 0.65) * clamp(dot(lightDir, worldNormal) * 0.5 + 0.5, 0.0, 1.0);
+  vec3 spec = vec3(1.0, 0.4, 0.2) * pow(clamp(dot(lightDir, refDir), 0.0, 1.0), 4.0);
 
-  // o_color = vec4(vec3(depth - 0.99) * 100.0, 1.0);
-  vec3 diffuse = vec3(0.2, 0.5, 0.8) * clamp(dot(lightDir, worldNormal) * 0.5 + 0.5, 0.0, 1.0);
-  vec3 spec = vec3(1.0) * pow(clamp(dot(lightDir, refDir), 0.0, 1.0), 16.0);
-  //vec3 spec = vec3(0.5) * fresnel;
-  o_color = vec4(diffuse + spec, 1.0);
+  o_color = vec4(0.1 + diffuse + spec, 1.0);
 }

@@ -16,16 +16,16 @@ export class BlurApplier {
     const fillViewportVertexShader = createShader(gl, fillViewportVertex, gl.VERTEX_SHADER);
     const blurFragmentShader = createShader(gl, blurFragment, gl.FRAGMENT_SHADER);
     this.program = new Program(gl, fillViewportVertexShader, blurFragmentShader,
-      ['u_srcTexture', 'u_horizontal', 'u_near', 'u_far']);
+      ['u_srcTexture', 'u_horizontal', 'u_near', 'u_far', 'u_blurDepthRange']);
     this.renderTarget = new SwappableHdrRenderTarget(gl, width, height);
     this.copyFilter = new CopyFilter(gl);
   }
 
-  apply(gl: WebGL2RenderingContext, src: RenderTarget, near: number, far: number, options: FilterOptions): WebGLTexture {
+  apply(gl: WebGL2RenderingContext, src: RenderTarget, near: number, far: number, blurDepthRange: number, options: FilterOptions): WebGLTexture {
     this.copyFilter.apply(gl, src, this.renderTarget, options);
     this.renderTarget.swap();
     gl.viewport(0.0, 0.0, this.renderTarget.width, this.renderTarget.height);
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 1; i++) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.renderTarget.framebuffer);
       gl.useProgram(this.program.program);
       setUniformTexture(gl, 0, this.renderTarget.texture, this.program.getUniform('u_srcTexture'));
@@ -39,6 +39,7 @@ export class BlurApplier {
       gl.uniform1f(this.program.getUniform('u_near'), near);
       gl.uniform1f(this.program.getUniform('u_far'), near);
       gl.uniform1f(this.program.getUniform('u_far'), far);
+      gl.uniform1f(this.program.getUniform('u_blurDepthRange'), blurDepthRange);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       this.renderTarget.swap();
     }
